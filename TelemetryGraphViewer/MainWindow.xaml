@@ -4,36 +4,90 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:oxy="http://oxyplot.org/wpf"
-        xmlns:local="clr-namespace:TelemetryViewer"
         mc:Ignorable="d"
-        Title="Telemetry Viewer" Height="600" Width="800">
+        Title="Анализатор телеметрии" 
+        Height="700" 
+        Width="1000"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="Segoe UI">
 
-    <Grid>
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="10 5"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Background" Value="#FF3F51B5"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="5"/>
+        </Style>
+
+        <Style TargetType="TextBlock">
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Background="#FFF5F5F5">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- Панель управления -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10">
-            <Button Content="Выбрать папку" 
-                    Click="BrowseFolder_Click" 
-                    Width="120" 
-                    Margin="0,0,10,0"/>
+        <Border Grid.Row="0" 
+                Background="#FFE8EAF6" 
+                Padding="10"
+                CornerRadius="0,0,10,10"
+                BorderThickness="0,0,0,1"
+                BorderBrush="#FFC5CAE9">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="Выбрать папку" 
+                        Click="BrowseFolder_Click" 
+                        Width="150"
+                        ToolTip="Выберите папку с файлами телеметрии"/>
 
-            <ComboBox x:Name="YColumnSelector" 
-                      Width="200" 
-                      Margin="0,0,10,0"
-                      DisplayMemberPath="."/>
+                <ComboBox x:Name="YColumnSelector" 
+                          Width="250"
+                          ToolTip="Выберите столбец для оси Y"
+                          DisplayMemberPath="."/>
 
-            <Button Content="Построить график" 
-                    Click="PlotGraph_Click" 
-                    Width="120"/>
-        </StackPanel>
+                <Button Content="Построить график" 
+                        Click="PlotGraph_Click" 
+                        Width="150"
+                        ToolTip="Построить график выбранных данных"/>
+            </StackPanel>
+        </Border>
 
-        <!-- График OxyPlot -->
-        <oxy:PlotView x:Name="PlotView" 
-                      Grid.Row="1" 
-                      Margin="10"/>
+        <!-- График -->
+        <Border Grid.Row="1" 
+                Margin="10" 
+                Background="White"
+                CornerRadius="5"
+                BorderThickness="1"
+                BorderBrush="#FFE0E0E0">
+            <oxy:PlotView x:Name="PlotView" 
+                          Background="Transparent"/>
+        </Border>
+
+        <!-- Статус бар -->
+        <Border Grid.Row="1" 
+                VerticalAlignment="Bottom" 
+                HorizontalAlignment="Stretch"
+                Background="#FFE8EAF6" 
+                Height="30"
+                CornerRadius="5,5,0,0">
+            <TextBlock x:Name="StatusText" 
+                       Text="Готов к работе" 
+                       VerticalAlignment="Center"
+                       Margin="10,0"
+                       Foreground="#FF3F51B5"/>
+        </Border>
     </Grid>
 </Window>

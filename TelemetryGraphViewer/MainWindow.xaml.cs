@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Windows;
-using System.Diagnostics;
 using System.Globalization;
 using OxyPlot.Legends;
 
@@ -19,7 +18,8 @@ namespace TelemetryViewer
 
         public MainWindow()
         {
-            InitializeComponent(); // Критически важная строка!
+            InitializeComponent();
+            StatusText.Text = "Выберите папку с данными для анализа";
         }
 
         private void BrowseFolder_Click(object sender, RoutedEventArgs e)
@@ -36,14 +36,15 @@ namespace TelemetryViewer
             }
         }
 
-
         private void LoadFiles(string folderPath)
         {
-            _loadedFiles.Clear();
-            var allUniqueColumns = new HashSet<string>(); // Для сбора ВСЕХ столбцов
-
             try
             {
+                _loadedFiles.Clear();
+                var allUniqueColumns = new HashSet<string>();
+
+                StatusText.Text = "Загрузка данных...";
+
                 foreach (var filePath in Directory.GetFiles(folderPath, "*.txt"))
                 {
                     try
@@ -51,7 +52,6 @@ namespace TelemetryViewer
                         var file = new TelemetryFile(filePath);
                         _loadedFiles.Add(file);
 
-                        // Добавляем все столбцы файла в общий набор (кроме Time)
                         foreach (var col in file.Columns)
                         {
                             if (!col.Equals("Time", StringComparison.OrdinalIgnoreCase))
@@ -62,21 +62,17 @@ namespace TelemetryViewer
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Ошибка в файле {filePath}: {ex.Message}");
+                        StatusText.Text = $"Ошибка в файле {Path.GetFileName(filePath)}: {ex.Message}";
                     }
                 }
 
-                // Обновляем ComboBox
                 YColumnSelector.ItemsSource = allUniqueColumns.OrderBy(c => c).ToList();
-
-                if (YColumnSelector.Items.Count == 0)
-                {
-                    MessageBox.Show("Не найдено столбцов для отображения!");
-                }
+                StatusText.Text = $"Загружено {_loadedFiles.Count} файлов, {allUniqueColumns.Count} столбцов";
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка загрузки: {ex.Message}");
+                StatusText.Text = $"Ошибка загрузки: {ex.Message}";
+                MessageBox.Show($"Ошибка загрузки: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -84,147 +80,113 @@ namespace TelemetryViewer
         {
             if (YColumnSelector.SelectedItem == null || !_loadedFiles.Any())
             {
-                MessageBox.Show("Сначала выберите столбец для оси Y и загрузите файлы!");
+                StatusText.Text = "Ошибка: не выбран столбец или нет загруженных файлов";
+                MessageBox.Show("Сначала выберите столбец для оси Y и загрузите файлы!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            var selectedColumn = YColumnSelector.SelectedItem.ToString();
-            var plotModel = new PlotModel
+            try
             {
-                Title = $"График: {selectedColumn}",
-                TitleFontSize = 14,
-                TitleFontWeight = OxyPlot.FontWeights.Bold,
-                SubtitleFontSize = 10,
-                DefaultFont = "Segoe UI",
-                PlotAreaBorderColor = OxyColors.LightGray,
-                PlotAreaBorderThickness = new OxyThickness(1)
-            };
-
-            // Настройка легенды (современный способ)
-            plotModel.Legends.Add(new Legend
-            {
-                LegendTitle = "Источники данных",
-                LegendTitleFont = "Segoe UI",
-                LegendTitleFontSize = 10,
-                LegendFontSize = 10,
-                LegendBorder = OxyColors.LightGray,
-                LegendBackground = OxyColor.FromArgb(200, 255, 255, 255),
-                LegendPosition = LegendPosition.RightTop,
-                LegendPlacement = LegendPlacement.Outside
-            });
-
-            // Настройка оси X (Time)
-            plotModel.Axes.Add(new LinearAxis
-            {
-                Position = AxisPosition.Bottom,
-                Title = "Время, сек",
-                TitleFontSize = 12,
-                AxislineColor = OxyColors.Black,
-                MajorGridlineStyle = LineStyle.Dot,
-                MajorGridlineColor = OxyColors.LightGray,
-                MinorGridlineStyle = LineStyle.Dot,
-                MinorGridlineColor = OxyColors.LightGray,
-                TicklineColor = OxyColors.Black,
-                MinimumPadding = 0.05,
-                MaximumPadding = 0.05
-            });
-
-            // Настройка оси Y
-            plotModel.Axes.Add(new LinearAxis
-            {
-                Position = AxisPosition.Left,
-                Title = selectedColumn,
-                TitleFontSize = 12,
-                AxislineColor = OxyColors.Black,
-                MajorGridlineStyle = LineStyle.Dot,
-                MajorGridlineColor = OxyColors.LightGray,
-                MinorGridlineStyle = LineStyle.Dot,
-                MinorGridlineColor = OxyColors.LightGray,
-                TicklineColor = OxyColors.Black,
-                MinimumPadding = 0.1,
-                MaximumPadding = 0.1
-            });
-
-            // Палитра цветов для линий
-            var colors = new[]
-            {
-        OxyColors.Blue,
-        OxyColors.Red,
-        OxyColors.Green,
-        OxyColors.Orange,
-        OxyColors.Purple,
-        OxyColors.Brown,
-        OxyColors.Teal
-    };
-
-            int colorIndex = 0;
-            foreach (var file in _loadedFiles)
-            {
-                if (!file.Columns.Contains("Time") || !file.Columns.Contains(selectedColumn))
-                    continue;
-
-                var series = new LineSeries
+                var selectedColumn = YColumnSelector.SelectedItem.ToString();
+                var plotModel = new PlotModel
                 {
-                    Title = Path.GetFileNameWithoutExtension(file.FilePath),
-                    Color = colors[colorIndex % colors.Length],
-                    StrokeThickness = 2,
-                    MarkerType = MarkerType.Circle,
-                    MarkerSize = 4,
-                    MarkerFill = colors[colorIndex % colors.Length],
-                    MarkerStroke = OxyColors.White,
-                    MarkerStrokeThickness = 1,
-                    LineStyle = LineStyle.Solid
+                    Title = $"{selectedColumn} vs Time",
+                    TitleFontSize = 14,
+                    Subtitle = $"Всего файлов: {_loadedFiles.Count}",
+                    SubtitleFontSize = 10,
+                    PlotAreaBorderColor = OxyColors.LightGray
                 };
 
-                colorIndex++;
-
-                // Парсинг данных с обработкой разных форматов чисел
-                var timeData = file.GetColumnData("Time")
-                    .Select(t => double.TryParse(t.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var time)
-                        ? time
-                        : double.NaN)
-                    .Where(t => !double.IsNaN(t))
-                    .ToArray();
-
-                var yData = file.GetColumnData(selectedColumn)
-                    .Select(y => double.TryParse(y.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var value)
-                        ? value
-                        : double.NaN)
-                    .Where(y => !double.IsNaN(y))
-                    .ToArray();
-
-                // Добавление точек (только если есть соответствующие данные)
-                int pointCount = Math.Min(timeData.Length, yData.Length);
-                if (pointCount > 0)
+                // Настройка легенды
+                plotModel.Legends.Add(new Legend
                 {
+                    LegendPosition = LegendPosition.RightTop,
+                    LegendPlacement = LegendPlacement.Outside
+                });
+
+                // Оси
+                plotModel.Axes.Add(new LinearAxis
+                {
+                    Position = AxisPosition.Bottom,
+                    Title = "Время (сек)",
+                    MajorGridlineStyle = LineStyle.Dot,
+                    MajorGridlineColor = OxyColors.LightGray
+                });
+
+                plotModel.Axes.Add(new LinearAxis
+                {
+                    Position = AxisPosition.Left,
+                    Title = selectedColumn,
+                    MajorGridlineStyle = LineStyle.Dot,
+                    MajorGridlineColor = OxyColors.LightGray
+                });
+
+                // Цвета для линий
+                var colors = new[]
+                {
+                    OxyColors.Blue, OxyColors.Red, OxyColors.Green,
+                    OxyColors.Orange, OxyColors.Purple, OxyColors.Teal
+                };
+
+                int colorIndex = 0;
+                foreach (var file in _loadedFiles)
+                {
+                    if (!file.Columns.Contains("Time") || !file.Columns.Contains(selectedColumn))
+                        continue;
+
+                    var series = new LineSeries
+                    {
+                        Title = Path.GetFileNameWithoutExtension(file.FilePath),
+                        Color = colors[colorIndex % colors.Length],
+                        StrokeThickness = 2,
+                        MarkerType = MarkerType.Circle,
+                        MarkerSize = 3
+                    };
+
+                    var timeData = file.GetColumnData("Time")
+                        .Select(t => ParseDouble(t))
+                        .Where(t => !double.IsNaN(t))
+                        .ToArray();
+
+                    var yData = file.GetColumnData(selectedColumn)
+                        .Select(y => ParseDouble(y))
+                        .Where(y => !double.IsNaN(y))
+                        .ToArray();
+
+                    int pointCount = Math.Min(timeData.Length, yData.Length);
                     for (int i = 0; i < pointCount; i++)
                     {
                         series.Points.Add(new DataPoint(timeData[i], yData[i]));
                     }
-                    plotModel.Series.Add(series);
 
-                    Debug.WriteLine($"Добавлено {pointCount} точек из файла {Path.GetFileName(file.FilePath)}");
+                    if (pointCount > 0)
+                    {
+                        plotModel.Series.Add(series);
+                        colorIndex++;
+                    }
                 }
-            }
 
-            if (plotModel.Series.Count > 0)
-            {
-                // Автоматическое масштабирование
-                plotModel.ResetAllAxes();
-
-                // Обновление графика с анимацией
-                PlotView.InvalidatePlot(true);
                 PlotView.Model = plotModel;
+                StatusText.Text = $"Построен график {selectedColumn} ({plotModel.Series.Count} файлов)";
             }
-            else
+            catch (Exception ex)
             {
-                MessageBox.Show("Нет данных для построения графика!\nПроверьте содержимое выбранных файлов.");
+                StatusText.Text = "Ошибка построения графика";
+                MessageBox.Show($"Ошибка при построении графика: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
+        private double ParseDouble(string value)
+        {
+            return double.TryParse(value.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var result)
+                ? result
+                : double.NaN;
+        }
+
         public class TelemetryFile
         {
             public string FilePath { get; }
-            public List<string> Columns { get; private set; } = new List<string>();
+            public List<string> Columns { get; set; } = new List<string>();
             public List<string[]> Rows { get; } = new List<string[]>();
 
             public TelemetryFile(string filePath)
@@ -238,10 +200,8 @@ namespace TelemetryViewer
                 var lines = File.ReadAllLines(FilePath);
                 if (lines.Length == 0) return;
 
-                // Определяем разделитель автоматически
-                var separator = lines[0].Contains('\t') ? '\t' :
-                              lines[0].Contains(';') ? ';' : ',';
-
+                // Автоопределение разделителя
+                var separator = DetectSeparator(lines[0]);
                 Columns = lines[0].Split(separator).Select(c => c.Trim()).ToList();
 
                 for (int i = 1; i < lines.Length; i++)
@@ -252,6 +212,13 @@ namespace TelemetryViewer
                         Rows.Add(values);
                     }
                 }
+            }
+
+            private char DetectSeparator(string headerLine)
+            {
+                if (headerLine.Contains('\t')) return '\t';
+                if (headerLine.Contains(';')) return ';';
+                return ',';
             }
 
             public List<string> GetColumnData(string columnName)
